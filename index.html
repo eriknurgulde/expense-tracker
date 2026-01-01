@@ -233,161 +233,161 @@
     </div>
 
     <script>
-        // FIXED: Added quotes around URL
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyni84fJUNBD7AkAEfYq7cG9f-_3RU8CMhGSXDfomOFMFzwwOdKaH4mRMF5RlZLBGbG6g/exec';
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzv2V5CIr6fVYdTaXIGWL71f2n3WSFr1sectMi4-3aC4PGmzZI9YifPeENXnrs4hQpv8w/exec';
+    
+    // Type selection
+    const typeButtons = document.querySelectorAll('.type-btn');
+    const expenseTypeInput = document.getElementById('expenseType');
+    
+    function updateTypeSelection(selectedType) {
+        typeButtons.forEach(btn => {
+            btn.classList.remove('selected');
+            if (btn.dataset.type === selectedType) {
+                btn.classList.add('selected');
+            }
+        });
+        expenseTypeInput.value = selectedType;
+    }
+    
+    typeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            updateTypeSelection(button.dataset.type);
+        });
+    });
+    
+    // Form submission using GET instead of POST (to avoid CORS)
+    document.getElementById('expenseForm').addEventListener('submit', function(e) {
+        e.preventDefault();
         
-        // Type selection - FIXED: Proper event delegation
-        const typeButtons = document.querySelectorAll('.type-btn');
-        const expenseTypeInput = document.getElementById('expenseType');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const status = document.getElementById('status');
         
-        // Initialize type selection properly
-        function updateTypeSelection(selectedType) {
-            typeButtons.forEach(btn => {
-                btn.classList.remove('selected');
-                if (btn.dataset.type === selectedType) {
-                    btn.classList.add('selected');
-                }
-            });
-            expenseTypeInput.value = selectedType;
+        // Get form values
+        const expenseType = expenseTypeInput.value;
+        const expenseName = document.getElementById('expenseName').value.trim();
+        let amount = document.getElementById('amount').value;
+        
+        if (!expenseName) {
+            status.className = 'error';
+            status.innerHTML = '❌ Please enter an expense name';
+            status.style.display = 'block';
+            return;
         }
         
-        typeButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                updateTypeSelection(button.dataset.type);
-            });
-        });
+        // Format amount
+        amount = parseFloat(amount).toFixed(2);
         
-        // Form submission - FIXED: Added mode: 'no-cors' and error handling
-        document.getElementById('expenseForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const submitBtn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
-            const status = document.getElementById('status');
-            
-            // Get form values
-            const expenseType = expenseTypeInput.value;
-            const expenseName = document.getElementById('expenseName').value.trim();
-            let amount = document.getElementById('amount').value;
-            
-            if (!expenseName) {
-                status.className = 'error';
-                status.innerHTML = '❌ Please enter an expense name';
-                status.style.display = 'block';
-                return;
-            }
-            
-            // Format amount to 2 decimal places
-            amount = parseFloat(amount).toFixed(2);
-            
-            if (isNaN(amount) || amount <= 0) {
-                status.className = 'error';
-                status.innerHTML = '❌ Please enter a valid amount greater than 0';
-                status.style.display = 'block';
-                return;
-            }
-            
-            // Disable button and show loading
-            submitBtn.disabled = true;
-            loading.style.display = 'block';
-            status.style.display = 'none';
-            
-            try {
-                // FIXED: Using proper fetch with error handling
-                const payload = {
-                    expenseType: expenseType,
-                    expenseName: expenseName,
-                    amount: amount
-                };
+        if (isNaN(amount) || amount <= 0) {
+            status.className = 'error';
+            status.innerHTML = '❌ Please enter a valid amount greater than 0';
+            status.style.display = 'block';
+            return;
+        }
+        
+        // Disable button and show loading
+        submitBtn.disabled = true;
+        loading.style.display = 'block';
+        status.style.display = 'none';
+        
+        // Create URL with parameters
+        const url = new URL(GOOGLE_SCRIPT_URL);
+        url.searchParams.append('expenseType', expenseType);
+        url.searchParams.append('expenseName', expenseName);
+        url.searchParams.append('amount', amount);
+        url.searchParams.append('timestamp', new Date().getTime()); // Cache buster
+        
+        console.log('Sending request to:', url.toString());
+        
+        // Use fetch with GET
+        fetch(url)
+            .then(response => response.text())
+            .then(text => {
+                console.log('Response text:', text);
                 
-                console.log('Sending:', payload);
-                
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                console.log('Response status:', response.status);
-                
-                // Try to parse JSON response
+                // Try to parse JSON
                 let result;
                 try {
-                    const text = await response.text();
-                    console.log('Response text:', text);
                     result = JSON.parse(text);
-                } catch (parseError) {
-                    console.error('Parse error:', parseError);
-                    throw new Error('Invalid response from server');
+                } catch (e) {
+                    // If it's not JSON, it might be HTML or text
+                    if (text.includes('success') || text.includes('row')) {
+                        // Try to extract JSON from possible HTML wrapper
+                        const match = text.match(/\{.*\}/);
+                        if (match) {
+                            result = JSON.parse(match[0]);
+                        } else {
+                            throw new Error('Invalid response format');
+                        }
+                    } else {
+                        throw new Error('Unexpected response: ' + text.substring(0, 100));
+                    }
                 }
                 
                 if (result.success) {
-                    // Show success message
+                    // Show success
                     status.className = 'success';
                     status.innerHTML = `✅ Added to ${expenseType}!<br><small>${expenseName}_${getFormattedDate()} - ${amount}</small>`;
                     status.style.display = 'block';
                     
-                    // Clear form but keep type selection
+                    // Clear form
                     document.getElementById('expenseName').value = '';
                     document.getElementById('amount').value = '';
                     document.getElementById('expenseName').focus();
                     
-                    // Auto-hide success message after 5 seconds
+                    // Auto-hide message
                     setTimeout(() => {
                         status.style.display = 'none';
                     }, 5000);
                 } else {
                     throw new Error(result.message || 'Unknown error');
                 }
-                
-            } catch (error) {
-                console.error('Full error:', error);
-                // Show error message
+            })
+            .catch(error => {
+                console.error('Error:', error);
                 status.className = 'error';
                 status.innerHTML = `❌ Error: ${error.message}<br><small>Check console for details</small>`;
                 status.style.display = 'block';
-            } finally {
-                // Re-enable button and hide loading
+            })
+            .finally(() => {
                 submitBtn.disabled = false;
                 loading.style.display = 'none';
-            }
-        });
-        
-        // Format amount on blur
-        document.getElementById('amount').addEventListener('blur', function(e) {
-            const value = parseFloat(e.target.value);
-            if (!isNaN(value) && value > 0) {
-                e.target.value = value.toFixed(2);
-            }
-        });
-        
-        // Auto-advance on Enter key
-        document.getElementById('expenseName').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('amount').focus();
-            }
-        });
-        
-        document.getElementById('amount').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('submitBtn').click();
-            }
-        });
-        
-        // Get formatted date for display
-        function getFormattedDate() {
-            const now = new Date();
-            return (now.getMonth() + 1).toString().padStart(2, '0') + 
-                   '/' + 
-                   now.getDate().toString().padStart(2, '0');
+            });
+    });
+    
+    // Format amount on blur
+    document.getElementById('amount').addEventListener('blur', function(e) {
+        const value = parseFloat(e.target.value);
+        if (!isNaN(value) && value > 0) {
+            e.target.value = value.toFixed(2);
         }
-        
-        // Initialize
-        document.getElementById('expenseName').focus();
-    </script>
+    });
+    
+    // Auto-advance on Enter key
+    document.getElementById('expenseName').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('amount').focus();
+        }
+    });
+    
+    document.getElementById('amount').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('submitBtn').click();
+        }
+    });
+    
+    // Get formatted date
+    function getFormattedDate() {
+        const now = new Date();
+        return (now.getMonth() + 1).toString().padStart(2, '0') + '/' + 
+               now.getDate().toString().padStart(2, '0');
+    }
+    
+    // Initialize
+    document.getElementById('expenseName').focus();
+</script>
 </body>
 </html>
+
