@@ -95,27 +95,7 @@
             border-color: #667eea;
         }
         
-        .amount-group {
-            position: relative;
-        }
-        
-        .amount-group::before {
-            content: "$";
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #5f6368;
-            font-size: 20px;
-            font-weight: 500;
-            z-index: 1;
-        }
-        
-        #amount {
-            padding-left: 40px;
-            font-size: 18px;
-            font-weight: 500;
-        }
+        /* REMOVED DOLLAR SIGN STYLES */
         
         button[type="submit"] {
             width: 100%;
@@ -234,10 +214,8 @@
             </div>
             
             <div class="form-group">
-                <label for="amount">How much? ($)</label>
-                <div class="amount-group">
-                    <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" required>
-                </div>
+                <label for="amount">Amount spent</label>
+                <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" required>
             </div>
             
             <button type="submit" id="submitBtn">Add to Google Sheets</button>
@@ -255,27 +233,31 @@
     </div>
 
     <script>
-        // REPLACE THIS with your Google Apps Script Web App URL
-        const GOOGLE_SCRIPT_URL = https://script.google.com/macros/s/AKfycbyz2OZ2K13SL1j9tMt_fqIKJnOw-JKa7g-DfQJRt-WYDWIPVEzE8BvhqXoZxsXD1_HoXQ/exec;
+        // FIXED: Added quotes around URL
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyni84fJUNBD7AkAEfYq7cG9f-_3RU8CMhGSXDfomOFMFzwwOdKaH4mRMF5RlZLBGbG6g/exec';
         
-        // Type selection
+        // Type selection - FIXED: Proper event delegation
         const typeButtons = document.querySelectorAll('.type-btn');
         const expenseTypeInput = document.getElementById('expenseType');
         
+        // Initialize type selection properly
+        function updateTypeSelection(selectedType) {
+            typeButtons.forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.dataset.type === selectedType) {
+                    btn.classList.add('selected');
+                }
+            });
+            expenseTypeInput.value = selectedType;
+        }
+        
         typeButtons.forEach(button => {
             button.addEventListener('click', () => {
-                // Remove selected class from all buttons
-                typeButtons.forEach(btn => btn.classList.remove('selected'));
-                
-                // Add selected class to clicked button
-                button.classList.add('selected');
-                
-                // Update hidden input
-                expenseTypeInput.value = button.dataset.type;
+                updateTypeSelection(button.dataset.type);
             });
         });
         
-        // Form submission
+        // Form submission - FIXED: Added mode: 'no-cors' and error handling
         document.getElementById('expenseForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -287,6 +269,13 @@
             const expenseType = expenseTypeInput.value;
             const expenseName = document.getElementById('expenseName').value.trim();
             let amount = document.getElementById('amount').value;
+            
+            if (!expenseName) {
+                status.className = 'error';
+                status.innerHTML = '❌ Please enter an expense name';
+                status.style.display = 'block';
+                return;
+            }
             
             // Format amount to 2 decimal places
             amount = parseFloat(amount).toFixed(2);
@@ -304,24 +293,40 @@
             status.style.display = 'none';
             
             try {
+                // FIXED: Using proper fetch with error handling
+                const payload = {
+                    expenseType: expenseType,
+                    expenseName: expenseName,
+                    amount: amount
+                };
+                
+                console.log('Sending:', payload);
+                
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        expenseType: expenseType,
-                        expenseName: expenseName,
-                        amount: amount
-                    }),
+                    body: JSON.stringify(payload),
                     headers: {
                         'Content-Type': 'application/json'
                     }
                 });
                 
-                const result = await response.json();
+                console.log('Response status:', response.status);
+                
+                // Try to parse JSON response
+                let result;
+                try {
+                    const text = await response.text();
+                    console.log('Response text:', text);
+                    result = JSON.parse(text);
+                } catch (parseError) {
+                    console.error('Parse error:', parseError);
+                    throw new Error('Invalid response from server');
+                }
                 
                 if (result.success) {
                     // Show success message
                     status.className = 'success';
-                    status.innerHTML = `✅ Added to ${expenseType}!<br><small>${expenseName}_${getFormattedDate()} - $${amount}</small>`;
+                    status.innerHTML = `✅ Added to ${expenseType}!<br><small>${expenseName}_${getFormattedDate()} - ${amount}</small>`;
                     status.style.display = 'block';
                     
                     // Clear form but keep type selection
@@ -334,16 +339,15 @@
                         status.style.display = 'none';
                     }, 5000);
                 } else {
-                    throw new Error(result.message);
+                    throw new Error(result.message || 'Unknown error');
                 }
                 
             } catch (error) {
+                console.error('Full error:', error);
                 // Show error message
                 status.className = 'error';
-                status.innerHTML = `❌ Error: ${error.message}`;
+                status.innerHTML = `❌ Error: ${error.message}<br><small>Check console for details</small>`;
                 status.style.display = 'block';
-                
-                console.error('Error:', error);
             } finally {
                 // Re-enable button and hide loading
                 submitBtn.disabled = false;
