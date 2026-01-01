@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-top: 20px;
+        }
+        
+        h1 {
+            color: #202124;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .type-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .type-btn.needs {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            border: 2px solid #1a73e8;
+        }
+        
+        .type-btn.wants {
+            background-color: #fce8e6;
+            color: #d93025;
+            border: 2px solid #d93025;
+        }
+        
+        .type-btn.selected {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #5f6368;
+            font-weight: 500;
+            font-size: 15px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #dadce0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .amount-group {
+            position: relative;
+        }
+        
+        .amount-group::before {
+            content: "$";
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #5f6368;
+            font-size: 20px;
+            font-weight: 500;
+            z-index: 1;
+        }
+        
+        #amount {
+            padding-left: 40px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        button[type="submit"] {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-top: 10px;
+        }
+        
+        button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            font-weight: 500;
+        }
+        
+        .success {
+            background-color: #e6f4ea;
+            color: #137333;
+            border: 2px solid #137333;
+            display: block;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .error {
+            background-color: #fce8e6;
+            color: #c5221f;
+            border: 2px solid #c5221f;
+            display: block;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 16px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .loading::after {
+            content: "⠋";
+            animation: dots 1.5s steps(5, end) infinite;
+            font-size: 20px;
+            margin-left: 5px;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: "⠋"; }
+            40% { content: "⠙"; }
+            60% { content: "⠹"; }
+            80% { content: "⠸"; }
+            100% { content: "⠴"; }
+        }
+        
+        .sheet-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 25px;
+            font-size: 14px;
+            color: #5f6368;
+            text-align: center;
+            border: 2px dashed #dadce0;
+        }
+        
+        .sheet-info strong {
+            color: #202124;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Expense Tracker</h1>
+        
+        <div class="type-selector">
+            <button type="button" class="type-btn needs selected" data-type="Needs">Needs</button>
+            <button type="button" class="type-btn wants" data-type="Wants">Wants</button>
+        </div>
+        
+        <form id="expenseForm">
+            <input type="hidden" id="expenseType" name="expenseType" value="Needs">
+            
+            <div class="form-group">
+                <label for="expenseName">What did you spend on?</label>
+                <input type="text" id="expenseName" placeholder="e.g., Groceries, Gas, Rent..." required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="amount">How much? ($)</label>
+                <div class="amount-group">
+                    <input type="number" id="amount" min="0" step="0.01" placeholder="0.00" required>
+                </div>
+            </div>
+            
+            <button type="submit" id="submitBtn">Add to Google Sheets</button>
+        </form>
+        
+        <div id="loading" class="loading">Sending to Google Sheets</div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="sheet-info">
+            📊 <strong>Google Sheets Location:</strong><br>
+            • <span style="color: #1a73e8;">Needs</span>: Columns C & D (starting row 7)<br>
+            • <span style="color: #d93025;">Wants</span>: Columns E & F (starting row 5)
+        </div>
+    </div>
+
+    <script>
+        // REPLACE THIS with your Google Apps Script Web App URL
+        const GOOGLE_SCRIPT_URL = https://script.google.com/macros/s/AKfycbyz2OZ2K13SL1j9tMt_fqIKJnOw-JKa7g-DfQJRt-WYDWIPVEzE8BvhqXoZxsXD1_HoXQ/exec;
+        
+        // Type selection
+        const typeButtons = document.querySelectorAll('.type-btn');
+        const expenseTypeInput = document.getElementById('expenseType');
+        
+        typeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove selected class from all buttons
+                typeButtons.forEach(btn => btn.classList.remove('selected'));
+                
+                // Add selected class to clicked button
+                button.classList.add('selected');
+                
+                // Update hidden input
+                expenseTypeInput.value = button.dataset.type;
+            });
+        });
+        
+        // Form submission
+        document.getElementById('expenseForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const status = document.getElementById('status');
+            
+            // Get form values
+            const expenseType = expenseTypeInput.value;
+            const expenseName = document.getElementById('expenseName').value.trim();
+            let amount = document.getElementById('amount').value;
+            
+            // Format amount to 2 decimal places
+            amount = parseFloat(amount).toFixed(2);
+            
+            if (isNaN(amount) || amount <= 0) {
+                status.className = 'error';
+                status.innerHTML = '❌ Please enter a valid amount greater than 0';
+                status.style.display = 'block';
+                return;
+            }
+            
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+            status.style.display = 'none';
+            
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        expenseType: expenseType,
+                        expenseName: expenseName,
+                        amount: amount
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success message
+                    status.className = 'success';
+                    status.innerHTML = `✅ Added to ${expenseType}!<br><small>${expenseName}_${getFormattedDate()} - $${amount}</small>`;
+                    status.style.display = 'block';
+                    
+                    // Clear form but keep type selection
+                    document.getElementById('expenseName').value = '';
+                    document.getElementById('amount').value = '';
+                    document.getElementById('expenseName').focus();
+                    
+                    // Auto-hide success message after 5 seconds
+                    setTimeout(() => {
+                        status.style.display = 'none';
+                    }, 5000);
+                } else {
+                    throw new Error(result.message);
+                }
+                
+            } catch (error) {
+                // Show error message
+                status.className = 'error';
+                status.innerHTML = `❌ Error: ${error.message}`;
+                status.style.display = 'block';
+                
+                console.error('Error:', error);
+            } finally {
+                // Re-enable button and hide loading
+                submitBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+        
+        // Format amount on blur
+        document.getElementById('amount').addEventListener('blur', function(e) {
+            const value = parseFloat(e.target.value);
+            if (!isNaN(value) && value > 0) {
+                e.target.value = value.toFixed(2);
+            }
+        });
+        
+        // Auto-advance on Enter key
+        document.getElementById('expenseName').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('amount').focus();
+            }
+        });
+        
+        document.getElementById('amount').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('submitBtn').click();
+            }
+        });
+        
+        // Get formatted date for display
+        function getFormattedDate() {
+            const now = new Date();
+            return (now.getMonth() + 1).toString().padStart(2, '0') + 
+                   '/' + 
+                   now.getDate().toString().padStart(2, '0');
+        }
+        
+        // Initialize
+        document.getElementById('expenseName').focus();
+    </script>
+</body>
+</html>
